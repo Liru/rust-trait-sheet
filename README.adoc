@@ -1,0 +1,141 @@
+= Rust Trait Cheat Sheet
+Liru <https://github.com/Liru[@Liru] / https://twitter.com/TheLiru>
+:toc: macro
+
+image::https://img.shields.io/badge/cheat-sheet-orange?style=plastic&logo=rust[]
+
+This is a list of common Rust traits used while developing Rust code, as well as small code snippets useful for copypasting, and additional information to make full use of the trait, usually copied from documentation.
+
+This list is roughly ordered in terms of frequency of use and ease of adding in new traits.
+
+[discrete]
+== Why?
+
+Every time I write code in Rust involving my own structs, I seem to forget about one or two useful traits to add in to make code easier to use and more flexible. I wanted to make a list that I could follow or reference without having to jump between several pages of docs.
+
+toc::[]
+
+== Derivable
+
+Not much to worry about here. Just slap it in a `#[derive()]` and you're probably good to go. Most people should be familiar with these.
+
+* https://doc.rust-lang.org/std/fmt/trait.Debug.html[`Debug`]
+* https://doc.rust-lang.org/std/default/trait.Default.html[`Default`]
+** Useful on enums as well, although it has to be manually implemented.
+* https://doc.rust-lang.org/std/clone/trait.Clone.html[`Clone`]
+* https://doc.rust-lang.org/std/marker/trait.Copy.html[`Copy`]
+* https://doc.rust-lang.org/std/cmp/trait.PartialEq.html[`PartialEq`] and https://doc.rust-lang.org/std/cmp/trait.Eq.html[`Eq`]
+** Implement `Eq` when a thing is always equal to itself. This is "usually" for most simple structs (without floats). (This may seem a bit obvious.)
+* https://doc.rust-lang.org/std/cmp/trait.PartialOrd.html[`PartialOrd`] and https://doc.rust-lang.org/std/cmp/trait.Ord.html[`Ord`]
+* https://doc.rust-lang.org/std/hash/trait.Hash.html[`Hash`]
+
+There are also some traits that may be useful from external libraries.
+
+* https://crates.io/crates/serde[Serde]: https://docs.rs/serde/latest/serde/trait.Serialize.html[`Serialize`] and https://docs.rs/serde/latest/serde/trait.Deserialize.html[`Deserialize`]
+
+It's probably easiest to just slap one of these snippets at the beginning and remove what isn't actually wanted/needed/valid.
+
+This snippet always works, but requires your project to add the `serde` feature in `Cargo.toml` for `serde` support.
+
+```rust
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+struct MyStruct(i32); // Of course, with your own type. 
+```
+
+Alternatively, if you're sure you have all the necessary crates installed and imported:
+
+```rust
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Serialize, Deserialize)]
+struct MyStruct(i32);
+```
+
+== Common traits
+
+The derivable traits can be manually implemented for more non-standard structs, but if you're going down this list, you probably already went through that. Some additional notes for some of them:
+
+* https://doc.rust-lang.org/std/default/trait.Default.html[`Default`]
+** Mostly here since enums can't be auto-derived.
+* https://doc.rust-lang.org/std/clone/trait.Clone.html[`Clone`]
+** Some things can't be auto-derived but are still easy to implement:
+
+```rust
+struct Generate<T>(fn() -> T);
+
+impl<T> Copy for Generate<T> {}
+
+impl<T> Clone for Generate<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+```
+
+Additional traits:
+
+* https://doc.rust-lang.org/std/fmt/trait.Display.html[`Display`] for when there's a simple canonical way to show the value of a struct in a non-debug context. If you're not sure, it probably isn't, and should probably have its own standalone method.
+* https://doc.rust-lang.org/std/convert/trait.From.html[`From`] from converting one type into another.
+** Automatically implements `Into`. It used to be that you needed to use `Into` for outside types (`impl Into<MyType> for u8`, for instance), but that's no longer the case.
+** Should never fail; in the above example, every `u8` should also be a valid `MyType`.
+* https://doc.rust-lang.org/std/convert/trait.Into.html[`Into`]
+** Automatically implemented by `From`. Don't implement directly; use `Into` as a trait bound on a generic function instead of `From`.
+* https://doc.rust-lang.org/std/convert/trait.TryFrom.html[`TryFrom`] and https://doc.rust-lang.org/std/convert/trait.TryInto.html[`TryInto`], fallible versions of the above. `TryFrom` autoimplements `TryInto`.
+* https://doc.rust-lang.org/std/str/trait.FromStr.html[`FromStr`] allows `str::parse` usage for the type. Probably the preferred way of turning a string into another type.
+
+== Operators
+
+There's a bunch of operators, but these are the ones you probably want for ergonomics. More can be found https://doc.rust-lang.org/std/ops/index.html[here].
+
+// Maybe add other Op{Assign} traits to end?
+
+* https://doc.rust-lang.org/std/ops/trait.Add.html[`Add`] and https://doc.rust-lang.org/std/ops/trait.AddAssign.html[`AddAssign`]
+* https://doc.rust-lang.org/std/ops/trait.Sub.html[`Sub`] and https://doc.rust-lang.org/std/ops/trait.SubAssign.html[`SubAssign`]
+* https://doc.rust-lang.org/std/ops/trait.Mul.html[`Mul`] and https://doc.rust-lang.org/std/ops/trait.MulAssign.html[`MulAssign`]
+* https://doc.rust-lang.org/std/ops/trait.Div.html[`Div`] and https://doc.rust-lang.org/std/ops/trait.DivAssign.html[`DivAssign`]
+* https://doc.rust-lang.org/std/ops/trait.Neg.html[`Neg`]
+* https://doc.rust-lang.org/std/ops/trait.Not.html[`Not`] 
+
+== Containers
+
+For types that are wrappers around other containers with additional operations:
+
+* https://doc.rust-lang.org/std/iter/trait.IntoIterator.html[`IntoIterator`] for `.into_iter()`.
+** Allows easy usage of the container in `for` loops with `for x in container { ... }`.
+* https://doc.rust-lang.org/std/iter/trait.FromIterator.html[`FromIterator`] to https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.collect[`.collect()`] into a struct.
+* https://doc.rust-lang.org/std/iter/trait.Extend.html[`Extend`] to add more values to the struct using an iterator.
+
+There is no trait for the container itself that enables `.iter()`; that's usually a method on the struct itself that returns another struct that implements `Iterator` and has a reference to the container. (Note that an iterator doesn't need to have a reference to a struct; it can just be used to create a stream of values.)
+
+Also note that you can use these to improve ergonomics for types where you may not expect it. For instance, `Option<T>` and `Result<T, E>` implement `IntoIterator`, so you can technically write code such as `for i in Some(1) { ... }`, or use a `flat_map()` method to "unwrap" them from their container and use only the "valid" values.
+
+// This may be slightly misleading. Maybe change the wording?
+
+== Iterators
+
+* https://doc.rust-lang.org/std/iter/trait.Iterator.html[`Iterator`]
+** Also good to implement https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.size_hint[`size_hint()`] for custom iterators.
+* https://doc.rust-lang.org/std/ops/trait.Index.html[`Index`] and https://doc.rust-lang.org/std/ops/trait.Index.html[`IndexMut`] to allow `container[idx]` syntax.
+* https://doc.rust-lang.org/std/iter/trait.DoubleEndedIterator.html[`DoubleEndedIterator`] which allows for zero-cost reverse using `.rev()`, among a few other methods.
+* https://doc.rust-lang.org/std/iter/trait.ExactSizeIterator.html[`ExactSizeIterator`] for when the exact length is known.
+** Should also implement `size_hint()` for this.
+* https://doc.rust-lang.org/std/iter/trait.FusedIterator.html[`FusedIterator`] for when no values come after the first `None` in a `next()` call.
+** No methods to implement, just a marker trait.
+
+* https://doc.rust-lang.org/std/iter/trait.Sum.html[`Sum`] for when a value's result can be summed from a bunch in an iterator.
+* https://doc.rust-lang.org/std/iter/trait.Product.html[`Product`] for when a value's result can be multiplied out from a bunch in an iterator.
+
+
+== More uncommon traits
+
+* https://doc.rust-lang.org/std/convert/trait.AsRef.html[`AsRef`]  and https://doc.rust-lang.org/std/convert/trait.AsMut.html[`AsMut`] for simple reference conversions
+* https://doc.rust-lang.org/std/ops/trait.Drop.html[`Drop`] for destructor-like functionality
+
+== Advanced
+
+* [`Borrow`] and [`BorrowMut`] for generic bounds on borrowed variables.
+
+== Avoid
+
+These are traits that look like they may be interesting to implement on any struct, but should probably be avoided.
+
+* https://doc.rust-lang.org/std/ops/trait.Deref.html[`Deref`] and https://doc.rust-lang.org/std/ops/trait.DerefMut.html[`DerefMut`] should mostly be used for smart pointers since they're highly implicit. If you want to use a trait to use a value as another type, you probably want `AsRef`.
